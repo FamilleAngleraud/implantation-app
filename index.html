@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Implantation Multi-Plans + Catalogue (v4 + Photos + PDF)</title>
+  <title>Implantation Multi-Plans + Catalogue (v4 + Photos + PDF + Tirage câbles)</title>
   <style>
     :root{
       --bg:#0b1220; --text:#e8eefc; --muted:#9fb0d0;
@@ -320,6 +320,38 @@
       font-size:13px;
     }
 
+    /* ✅ NOUVEAU : sélecteur tirage câble */
+    .radioGrid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:8px;
+      margin-top:8px;
+      padding-top:8px;
+      border-top:1px solid rgba(255,255,255,.07);
+    }
+    .radioOpt{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      cursor:pointer;
+      user-select:none;
+    }
+    .radioOpt:hover{ background: rgba(255,255,255,.05); }
+    .radioOpt .l{
+      display:flex; gap:10px; align-items:flex-start;
+      min-width:0;
+    }
+    .radioOpt input{ margin-top:3px; }
+    .radioOpt .txt{ min-width:0; }
+    .radioOpt .ttl{ font-weight:900; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .radioOpt .sub{ color:var(--muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .radioOpt .r{ color:var(--muted); font-size:12px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+
     .toast{
       position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
       background: rgba(0,0,0,.7);
@@ -406,7 +438,7 @@
 <header>
   <div class="title">
     <h1>Implantation Multi-Plans + Catalogue</h1>
-    <div class="sub">v4 • Produit composite “Pont Wifi” (TX+RX) compté comme 1 • + Photos + Export PDF</div>
+    <div class="sub">v4 • Pont Wifi TX/RX • + Photos • Export PDF • Tirage câble (client/facile/moyen/difficile)</div>
   </div>
 
   <div class="actions">
@@ -417,7 +449,6 @@
     <label class="btn small primary" for="planFile">📎 Charger image plan</label>
     <input id="planFile" type="file" accept="image/*" />
 
-    <!-- ✅ NOUVEAU : Photos + Export PDF -->
     <button class="btn small" id="btnPhotos">🖼️ Photos du projet</button>
     <button class="btn small primary" id="btnExportPDF">📄 Export PDF</button>
     <input id="photosFile" type="file" accept="image/*" multiple />
@@ -436,7 +467,7 @@
         <div class="t">Plans + Catalogue</div>
         <div class="d">Pose produit sur plan (drag) • “Pont Wifi” = 2 icônes TX/RX</div>
       </div>
-      <div class="pill" id="statusPill">0 équipement</div>
+      <div class="pill" id="statusPill">0 point</div>
     </div>
 
     <div class="tabs" id="tabs"></div>
@@ -508,6 +539,10 @@
         <div class="bh">Main d'œuvre</div>
         <div class="bb">
           <div class="grid2" id="moGrid"></div>
+
+          <!-- ✅ NOUVEAU : Choix tirage câble -->
+          <div class="radioGrid" id="cableModeBox"></div>
+
           <div style="height:10px"></div>
 
           <div class="optRow" style="border-bottom:none;">
@@ -522,7 +557,8 @@
               <input class="miniInput" id="secondTechHours" type="number" min="0" step="0.5" value="0" style="width:140px" />
             </span>
           </div>
-          <div class="note">Tirage câble : 20 m / heure (calculé sur CABRJ45-100 × 100m).</div>
+
+          <div class="note" id="cableHint">Tirage câble : mode sélectionné ci-dessus.</div>
         </div>
       </div>
 
@@ -570,14 +606,13 @@
     </div>
     <div class="modalBody">
       <div id="photosGrid"></div>
-      <div class="note" style="margin-top:10px;">
+      <div class="note" style="margin-top:1010px;">
         Astuce : pour un PDF fluide sur iPad, évite 50 photos “full 4K” 😉 (les photos sont compressées automatiquement).
       </div>
     </div>
   </div>
 </div>
 
-<!-- ✅ Librairies PDF (CDN) -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
@@ -600,8 +635,6 @@ const CATALOG = {
         { key:"VPRO_HDD_4TB", name:"Disque dur 4TB surveillance", ref:"HDD-SURV-4TB", pu:135, poseH:0.2, icon:"💽" },
         { key:"VPRO_HDD_8TB", name:"Disque dur 8TB surveillance", ref:"HDD-SURV-8TB", pu:235, poseH:0.2, icon:"💽" }
       ],
-
-      /* ✅ NOUVELLE SOUS-RUBRIQUE */
       "Transmission": [
         {
           key:"VPRO_PONT_WIFI",
@@ -619,7 +652,6 @@ const CATALOG = {
       ]
     }
   },
-
   "Intrusion": {
     icon: "🚨",
     groups: {
@@ -633,7 +665,6 @@ const CATALOG = {
       ]
     }
   },
-
   "Contrôle d'accès": {
     icon: "🔐",
     groups: {
@@ -660,7 +691,15 @@ const CABLING_RULES = {
   ]
 };
 
-const PARAM = { moRate:72, cableSpeedMPerHour:20, tva:0.20 };
+const PARAM = { moRate:72, tva:0.20 };
+
+/* ✅ NOUVEAU : modes tirage câble */
+const CABLE_MODES = [
+  { id:"client",  label:"Tirage réalisé par le client", sub:"Tirage câble = 0 h", speed:0 },
+  { id:"easy",    label:"Tirage facile (faux plafond dalle)", sub:"50 mètres / heure", speed:50 },
+  { id:"medium",  label:"Tirage moyen (chemin de câble / goulotte)", sub:"25 mètres / heure", speed:25 },
+  { id:"hard",    label:"Tirage difficile (nacelle / hauteur)", sub:"10 mètres / heure", speed:10 }
+];
 
 const OPTIONS_DEF = [
   { id:"telesurveillance", label:"Télésurveillance", sub:"Forfait mensuel", type:"flat", price:35 },
@@ -670,24 +709,27 @@ const OPTIONS_DEF = [
 /* ===================== STATE ===================== */
 const LS_KEY = "implantation_catalogue_v4_composite_wifi";
 let state = loadState() || {
-  projectId: null, // ✅ nouveau (Photos = par projet)
+  projectId: null,
   activePlanId: null,
-  selectedId: null, // id d'un placement
+  selectedId: null,
   activeCategory: "Vidéoprotection",
   activeSubgroup: "Caméras",
   activeItemKey: null,
   options: { telesurveillance:false, levee_doute_video:false },
   secondTech: { enabled:false, hours:0 },
+  cableMode: "medium", /* ✅ par défaut = moyen */
   plans: [{ id: uid("plan"), name:"RDC", imageDataUrl:"", placements:[] }]
 };
 
 if(!state.projectId) state.projectId = "project_default";
 if(!state.activePlanId) state.activePlanId = state.plans[0].id;
+
 state.options = state.options || {};
 for(const o of OPTIONS_DEF){
   if(typeof state.options[o.id] !== "boolean") state.options[o.id] = false;
 }
 state.secondTech = state.secondTech || { enabled:false, hours:0 };
+if(!CABLE_MODES.some(m=>m.id===state.cableMode)) state.cableMode = "medium";
 
 ensureDefaultSelection();
 
@@ -760,6 +802,10 @@ const moGrid = document.getElementById("moGrid");
 const chkSecondTech = document.getElementById("chkSecondTech");
 const secondTechHoursInput = document.getElementById("secondTechHours");
 
+/* ✅ NOUVEAU : box modes câble */
+const cableModeBox = document.getElementById("cableModeBox");
+const cableHint = document.getElementById("cableHint");
+
 /* ===================== SECOND TECH UI ===================== */
 chkSecondTech.checked = !!state.secondTech.enabled;
 secondTechHoursInput.value = String(Number(state.secondTech.hours || 0));
@@ -775,6 +821,34 @@ secondTechHoursInput.addEventListener("input", ()=>{
   renderQuantitatifGlobal();
 });
 
+/* ===================== UI MODE CÂBLE ===================== */
+function renderCableModeUI(){
+  cableModeBox.innerHTML = "";
+  for(const m of CABLE_MODES){
+    const id = `cable_${m.id}`;
+    const row = document.createElement("div");
+    row.className = "radioOpt";
+    row.innerHTML = `
+      <div class="l">
+        <input type="radio" name="cableMode" id="${id}" value="${m.id}" ${state.cableMode===m.id ? "checked":""}>
+        <div class="txt">
+          <div class="ttl">${escapeHtml(m.label)}</div>
+          <div class="sub">${escapeHtml(m.sub)}</div>
+        </div>
+      </div>
+      <div class="r">${m.speed===0 ? "0 h" : (m.speed + " m/h")}</div>
+    `;
+    row.addEventListener("click", ()=>{
+      state.cableMode = m.id;
+      safeSaveRaw();
+      renderCableModeUI();
+      renderQuantitatifGlobal();
+      toast("Mode de tirage câble mis à jour ✅");
+    });
+    cableModeBox.appendChild(row);
+  }
+}
+
 /* ===================== RENDER ===================== */
 function renderAll(){
   renderTabs();
@@ -782,6 +856,7 @@ function renderAll(){
   renderActiveToolBox();
   renderPlan();
   renderPlacements();
+  renderCableModeUI(); /* ✅ nouveau */
   renderQuantitatifGlobal();
 }
 
@@ -1022,7 +1097,6 @@ planWrap.addEventListener("click", (ev)=>{
     const p2 = activeItem.parts[1];
 
     const dx = 0.05;
-    const dy = 0.00;
 
     const id1 = uid("pt");
     const id2 = uid("pt");
@@ -1036,7 +1110,7 @@ planWrap.addEventListener("click", (ev)=>{
       id:id2, bundleId, itemKey: state.activeItemKey,
       partRole: p2.role, partIcon: p2.icon, partLabel: p2.label,
       xPct: clamp(x+dx, 0.02, 0.98),
-      yPct: clamp(y+dy, 0.02, 0.98)
+      yPct: y
     });
 
     state.selectedId = id1;
@@ -1157,12 +1231,17 @@ document.getElementById("btnDeleteEqp").addEventListener("click", ()=>{
   toast("Supprimé 🗑️");
 });
 
-/* ===================== CALCULS (COMPOSITE COUNT = 1) ===================== */
+/* ===================== CALCULS (tirage câble selon mode) ===================== */
+function getCableSpeed(){
+  const m = CABLE_MODES.find(x=>x.id===state.cableMode) || CABLE_MODES[2];
+  return Number(m.speed||0);
+}
+
 function computeAggGlobal(){
-  const rowsMap = new Map(); // ref -> {ref,label,qty,pu,type}
+  const rowsMap = new Map(); // ref -> {ref,label,qty,pu,type,metersPerUnit}
   let hoursPose = 0;
 
-  const compositeCount = new Map(); // key=itemKey -> Set(bundleId)
+  const compositeCount = new Map(); // itemKey -> Set(bundleId)
 
   state.plans.forEach(pl=>{
     (pl.placements||[]).forEach(p=>{
@@ -1178,7 +1257,7 @@ function computeAggGlobal(){
 
       const key = m.ref;
       if(!rowsMap.has(key)){
-        rowsMap.set(key, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material" });
+        rowsMap.set(key, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material", metersPerUnit:0 });
       }
       rowsMap.get(key).qty += 1;
       hoursPose += Number(m.poseH || 0);
@@ -1194,7 +1273,7 @@ function computeAggGlobal(){
 
     const ref = m.ref;
     if(!rowsMap.has(ref)){
-      rowsMap.set(ref, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material" });
+      rowsMap.set(ref, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material", metersPerUnit:0 });
     }
     rowsMap.get(ref).qty += qty;
     hoursPose += Number(m.poseH || 0) * qty;
@@ -1209,7 +1288,12 @@ function computeAggGlobal(){
     if(addQty <= 0) continue;
 
     if(!rowsMap.has(meta.ref)){
-      rowsMap.set(meta.ref, { ref:meta.ref, label:meta.name, qty:0, pu:Number(meta.pu||0), type:meta.type || "cable", metersPerUnit:Number(meta.metersPerUnit||0) });
+      rowsMap.set(meta.ref, {
+        ref:meta.ref, label:meta.name, qty:0,
+        pu:Number(meta.pu||0),
+        type:meta.type || "cable",
+        metersPerUnit:Number(meta.metersPerUnit||0)
+      });
     }
     rowsMap.get(meta.ref).qty += addQty;
   }
@@ -1229,9 +1313,10 @@ function computeAggGlobal(){
     }
   }
 
-  const hoursCable = totalCableMeters / PARAM.cableSpeedMPerHour;
-  const secondHours = (state.secondTech.enabled ? Number(state.secondTech.hours||0) : 0);
+  const speed = getCableSpeed();
+  const hoursCable = (speed <= 0) ? 0 : (totalCableMeters / speed);
 
+  const secondHours = (state.secondTech.enabled ? Number(state.secondTech.hours||0) : 0);
   const totalHours = hoursPose + hoursCable + secondHours;
   const totalMOHT = totalHours * PARAM.moRate;
 
@@ -1252,6 +1337,7 @@ function computeAggGlobal(){
     secondHours,
     totalHours,
     totalCableMeters,
+    cableSpeed: speed,
     subHT,
     tva,
     totalTTC
@@ -1288,11 +1374,14 @@ function renderQuantitatifGlobal(){
 
   moGrid.innerHTML = `
     <div>Pose matériel (h)</div><div><b>${totals.hoursPose.toFixed(2)} h</b></div>
-    <div>Tirage câble (${totals.totalCableMeters.toFixed(0)} m @ 20 m/h)</div><div><b>${totals.hoursCable.toFixed(2)} h</b></div>
+    <div>Tirage câble (${totals.totalCableMeters.toFixed(0)} m @ ${totals.cableSpeed} m/h)</div><div><b>${totals.hoursCable.toFixed(2)} h</b></div>
     <div>Second technicien (h)</div><div><b>${totals.secondHours.toFixed(2)} h</b></div>
     <div>Total heures</div><div><b>${totals.totalHours.toFixed(2)} h</b></div>
     <div>MO (72€/h)</div><div><b>${fmt(totals.totalMOHT)}</b></div>
   `;
+
+  const cm = CABLE_MODES.find(x=>x.id===state.cableMode);
+  cableHint.textContent = cm ? `Tirage câble : ${cm.label} (${cm.speed===0 ? "0 h" : cm.speed+" m/h"}).` : "Tirage câble : mode sélectionné.";
 
   renderMaintenance(totals.subHT);
   renderOptions(totals.camCount);
@@ -1372,7 +1461,7 @@ function renderAssure(totalHT){
   `;
 }
 
-/* ===================== EXPORT CSV (composite ok) ===================== */
+/* ===================== EXPORT CSV ===================== */
 function buildCSVsimpleGlobal(){
   const { rows } = computeAggGlobal();
   const lines = ["ref;qty"];
@@ -1539,10 +1628,6 @@ function idbDeletePhoto(id){
   });
 }
 
-async function imageFileToCompressedDataUrl(file, maxDim=1600, quality=0.78){
-  return fileToCompressedDataUrl(file, maxDim, quality);
-}
-
 /* UI Photos */
 const btnPhotos = document.getElementById("btnPhotos");
 const photosModal = document.getElementById("photosModal");
@@ -1556,29 +1641,23 @@ btnPhotos.addEventListener("click", async ()=>{
   photosModal.style.display = "block";
   photosModal.setAttribute("aria-hidden", "false");
 });
-
 btnClosePhotos.addEventListener("click", ()=>{
   photosModal.style.display = "none";
   photosModal.setAttribute("aria-hidden", "true");
 });
-
 photosModal.addEventListener("click", (e)=>{
   if(e.target === photosModal){
     photosModal.style.display = "none";
     photosModal.setAttribute("aria-hidden", "true");
   }
 });
-
-btnAddPhotos.addEventListener("click", ()=>{
-  photosFile.click();
-});
-
+btnAddPhotos.addEventListener("click", ()=> photosFile.click());
 photosFile.addEventListener("change", async (e)=>{
   const files = [...(e.target.files || [])];
   if(!files.length) return;
   try{
     for(const f of files){
-      const dataUrl = await imageFileToCompressedDataUrl(f, 1600, 0.78);
+      const dataUrl = await fileToCompressedDataUrl(f, 1600, 0.78);
       await idbAddPhoto(state.projectId, dataUrl, f.name);
     }
     toast("Photos ajoutées ✅");
@@ -1598,7 +1677,6 @@ async function renderPhotosGrid(){
     photosGrid.innerHTML = `<div class="note">Aucune photo pour ce projet.</div>`;
     return;
   }
-
   for(const p of photos){
     const card = document.createElement("div");
     card.className = "phCard";
@@ -1611,7 +1689,6 @@ async function renderPhotosGrid(){
     `;
     photosGrid.appendChild(card);
   }
-
   photosGrid.querySelectorAll("[data-del]").forEach(btn=>{
     btn.addEventListener("click", async ()=>{
       const id = btn.getAttribute("data-del");
@@ -1625,24 +1702,20 @@ async function renderPhotosGrid(){
 /* ===================== LEGEND (1 plan) ===================== */
 function computeAggForOnePlan(plan){
   const rows = new Map();
-  const compositeBundles = new Map(); // itemKey -> Set(bundleId)
-
+  const compositeBundles = new Map();
   for(const p of (plan.placements||[])){
     const hit = getItemByKey(p.itemKey);
     if(!hit) continue;
     const m = hit.item;
-
     if(m.composite){
       if(!compositeBundles.has(m.key)) compositeBundles.set(m.key, new Set());
       if(p.bundleId) compositeBundles.get(m.key).add(p.bundleId);
       continue;
     }
-
     const ref = m.ref;
     if(!rows.has(ref)) rows.set(ref, { ref, label:m.name, qty:0 });
     rows.get(ref).qty += 1;
   }
-
   for(const [itemKey, setB] of compositeBundles.entries()){
     const hit = getItemByKey(itemKey);
     if(!hit) continue;
@@ -1651,10 +1724,8 @@ function computeAggForOnePlan(plan){
     if(!rows.has(ref)) rows.set(ref, { ref, label:m.name, qty:0 });
     rows.get(ref).qty += setB.size;
   }
-
   return [...rows.values()].sort((a,b)=>a.ref.localeCompare(b.ref));
 }
-
 function computeOptionsMonthlyHT(camCount){
   let sum = 0;
   for(const o of OPTIONS_DEF){
@@ -1672,16 +1743,12 @@ document.getElementById("btnExportPDF").addEventListener("click", async ()=>{
       toast("Librairies PDF non chargées (internet ?) ❌");
       return;
     }
-
     const projectName = prompt("Nom du projet :", "Étude - Site client");
     if(!projectName) return;
-
     const projectDate = prompt("Date (ex: 11/01/2026) :", new Date().toLocaleDateString("fr-FR"));
     if(!projectDate) return;
-
     const operator = prompt("Opérateur :", "");
     if(!operator) return;
-
     await exportPDF({ projectName, projectDate, operator });
   }catch(err){
     console.error(err);
@@ -1715,7 +1782,6 @@ async function exportPDF(meta){
     doc.text(txt, margin, y);
   }
 
-  /* PAGE 1 */
   const totals = computeAggGlobal();
   title("Étude – Implantation & Chiffrage");
   doc.setFontSize(12);
@@ -1735,7 +1801,6 @@ async function exportPDF(meta){
   doc.text(`TVA : ${fmtNumber(totals.tva)} €`, margin, y); y += 6;
   doc.text(`Total TTC : ${fmtNumber(totals.totalTTC)} €`, margin, y);
 
-  /* PAGES PLANS */
   const prevPlanId = state.activePlanId;
 
   for(const pl of state.plans){
@@ -1757,7 +1822,6 @@ async function exportPDF(meta){
     const drawH = Math.min(imgH, maxH);
     doc.addImage(imgData, "JPEG", margin, 26, imgW, drawH);
 
-    // Légende
     let ly = 26 + drawH + 10;
     doc.setFont("helvetica","bold"); doc.setFontSize(12);
     doc.text("Légende / Matériel sur ce plan", margin, ly); ly += 8;
@@ -1784,7 +1848,6 @@ async function exportPDF(meta){
   safeSaveRaw();
   renderAll();
 
-  /* PAGE COTATION */
   doc.addPage();
   title("Cotation & Services");
   y = 30;
@@ -1803,7 +1866,7 @@ async function exportPDF(meta){
   doc.setFont("helvetica","bold"); doc.text("Main d'œuvre (détails)", margin, y); y+=8;
   doc.setFont("helvetica","normal");
   doc.text(`Pose matériel : ${totals.hoursPose.toFixed(2)} h`, margin, y); y+=6;
-  doc.text(`Tirage câble : ${totals.hoursCable.toFixed(2)} h (${totals.totalCableMeters.toFixed(0)} m)`, margin, y); y+=6;
+  doc.text(`Tirage câble : ${totals.hoursCable.toFixed(2)} h (${totals.totalCableMeters.toFixed(0)} m @ ${totals.cableSpeed} m/h)`, margin, y); y+=6;
   doc.text(`Second technicien : ${totals.secondHours.toFixed(2)} h`, margin, y); y+=6;
   doc.text(`Total heures : ${totals.totalHours.toFixed(2)} h`, margin, y); y+=10;
 
@@ -1826,7 +1889,6 @@ async function exportPDF(meta){
   doc.text(`60 mois : ${fmtNumber(totals.subHT/36)} € HT/mois`, margin, y); y+=6;
   doc.text(`72 mois : ${fmtNumber(totals.subHT/42)} € HT/mois`, margin, y);
 
-  /* PAGES PHOTOS */
   const photos = await idbListPhotos(state.projectId);
   if(photos.length){
     doc.addPage();

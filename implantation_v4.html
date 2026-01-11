@@ -1,0 +1,1403 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Implantation Multi-Plans + Catalogue (v4)</title>
+  <style>
+    :root{
+      --bg:#0b1220; --text:#e8eefc; --muted:#9fb0d0;
+      --accent:#5aa7ff; --danger:#ff5a7a;
+      --shadow: 0 10px 28px rgba(0,0,0,.35);
+      --radius: 14px;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.03);
+      --line: rgba(255,255,255,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1000px 600px at 20% 10%, rgba(90,167,255,.18), transparent 60%),
+                  radial-gradient(900px 500px at 80% 20%, rgba(69,212,131,.12), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    header{
+      padding:14px 14px 10px;
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      position:sticky; top:0; z-index:20;
+      background: rgba(11,18,32,.85);
+      backdrop-filter: blur(10px);
+    }
+    header .title{display:flex; flex-direction:column; gap:2px;}
+    header h1{margin:0; font-size:16px; font-weight:750;}
+    header .sub{color:var(--muted); font-size:12px}
+    header .actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      color:var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      box-shadow: 0 6px 14px rgba(0,0,0,.18);
+      font-weight:650;
+      font-size:13px;
+      display:inline-flex; gap:8px; align-items:center;
+      user-select:none;
+    }
+    .btn.small{padding:8px 10px; font-size:12px; border-radius:10px}
+    .btn.primary{border-color: rgba(90,167,255,.55)}
+    .btn.danger{border-color: rgba(255,90,122,.55)}
+    input[type="file"]{display:none}
+
+    main{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:14px; padding:14px;
+    }
+    @media (max-width: 980px){ main{grid-template-columns: 1fr;} }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .card-h{
+      padding:12px 12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.03);
+    }
+    .card .card-h .left{display:flex; flex-direction:column; gap:2px;}
+    .card .card-h .t{font-weight:800; font-size:13px;}
+    .card .card-h .d{color:var(--muted); font-size:12px}
+    .card .card-b{padding:12px}
+
+    .tabs{display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 12px 0;}
+    .tab{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      cursor:pointer; user-select:none;
+      font-weight:750; font-size:12px;
+    }
+    .tab.active{
+      border-color: rgba(90,167,255,.6);
+      box-shadow: 0 0 0 4px rgba(90,167,255,.12);
+    }
+    .tab .mini{
+      color:var(--muted);
+      font-weight:700; font-size:11px;
+      padding:2px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+    }
+    .pill{
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      color:var(--muted); font-size:12px;
+      background: rgba(255,255,255,.04);
+    }
+
+    .catalog{
+      display:grid;
+      grid-template-columns: 220px 220px 1fr;
+      gap:10px;
+      padding:12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.12);
+    }
+    @media (max-width:980px){ .catalog{grid-template-columns: 1fr; } }
+    .panel{
+      background: var(--panel);
+      border:1px solid var(--line);
+      border-radius: 14px;
+      overflow:hidden;
+      min-height:160px;
+    }
+    .panel h3{
+      margin:0;
+      padding:10px 10px;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.2px;
+      background: var(--panel2);
+      border-bottom:1px solid var(--line);
+      color:var(--muted);
+      text-transform:uppercase;
+    }
+    .list{padding:6px}
+    .item{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      padding:10px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      user-select:none;
+      border:1px solid transparent;
+    }
+    .item:hover{ background: rgba(255,255,255,.04); }
+    .item.active{ border-color: rgba(90,167,255,.55); background: rgba(90,167,255,.10); }
+    .item .left{display:flex; align-items:center; gap:10px; min-width:0;}
+    .item .ic{
+      width:28px; height:28px;
+      border-radius:10px;
+      display:grid; place-items:center;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      flex:0 0 auto;
+    }
+    .item .txt{display:flex; flex-direction:column; gap:2px; min-width:0;}
+    .item .name{
+      font-weight:850; font-size:12px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .item .sub{
+      color:var(--muted); font-size:11px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .tag{
+      color:var(--muted);
+      font-size:11px;
+      border:1px solid rgba(255,255,255,.10);
+      padding:2px 8px;
+      border-radius:999px;
+      background: rgba(0,0,0,.18);
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+
+    .activeToolBox{
+      margin-top:8px;
+      padding:10px;
+      border-radius:12px;
+      border:1px solid rgba(90,167,255,.25);
+      background: rgba(90,167,255,.08);
+      font-size:12px;
+      display:flex; gap:10px; align-items:center;
+    }
+    .activeToolBox .ic{
+      width:30px; height:30px; border-radius:12px;
+      display:grid; place-items:center;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      flex:0 0 auto;
+    }
+    .note{color:var(--muted); font-size:12px; margin-top:8px; line-height:1.35}
+
+    #planWrap{
+      position:relative;
+      width:100%;
+      height: calc(100vh - 235px);
+      min-height:520px;
+      background: linear-gradient(180deg, rgba(16,31,56,.75), rgba(16,31,56,.35));
+      border-radius: 0 0 var(--radius) var(--radius);
+      overflow:hidden;
+      touch-action:none;
+      -webkit-user-select:none;
+      user-select:none;
+    }
+    @media (max-width:980px){ #planWrap{height: calc(100vh - 280px); min-height:480px;} }
+    #planImg{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit:contain;
+      pointer-events:none;
+      opacity:.95;
+    }
+    #planHint{
+      position:absolute; left:12px; bottom:12px;
+      color:rgba(232,238,252,.85);
+      background: rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.10);
+      padding:8px 10px; border-radius:12px;
+      font-size:12px;
+      display:flex; gap:10px; align-items:center;
+      backdrop-filter: blur(8px);
+      z-index:5;
+    }
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 4px rgba(90,167,255,.15)}
+
+    .eqp{
+      position:absolute;
+      width:34px; height:34px;
+      border-radius:12px;
+      display:grid; place-items:center;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.25);
+      box-shadow: 0 10px 22px rgba(0,0,0,.25);
+      cursor:grab;
+      transform: translate(-50%, -50%);
+      z-index:10;
+      touch-action:none;
+      -webkit-user-select:none;
+      user-select:none;
+    }
+    .eqp.selected{
+      outline: 3px solid rgba(90,167,255,.75);
+      box-shadow: 0 0 0 6px rgba(90,167,255,.18), 0 10px 22px rgba(0,0,0,.25);
+    }
+    .badge{
+      position:absolute;
+      top:-8px; right:-8px;
+      min-width:18px; height:18px;
+      padding:0 5px;
+      border-radius:999px;
+      display:grid; place-items:center;
+      font-size:11px;
+      border:1px solid rgba(255,255,255,.15);
+      background: rgba(0,0,0,.55);
+      color:var(--text);
+    }
+
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:8px 8px; border-bottom:1px solid rgba(255,255,255,.07); font-size:12px}
+    th{color:var(--muted); text-align:left; font-weight:850}
+    td.num{text-align:right; font-variant-numeric: tabular-nums}
+
+    .kv{
+      display:grid; grid-template-columns: 1fr auto; gap:8px;
+      padding:10px; border-radius:12px;
+      background: rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.07);
+      font-size:12px; margin-top:10px;
+    }
+    .kv div:nth-child(2n){text-align:right; font-variant-numeric: tabular-nums}
+    .sep{height:1px;background:rgba(255,255,255,.08); margin:10px 0}
+
+    .block{
+      margin-top:10px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      overflow:hidden;
+      background: rgba(0,0,0,.12);
+    }
+    .block .bh{
+      padding:10px 10px;
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.2px;
+      text-transform:uppercase;
+      color:var(--muted);
+      background: rgba(255,255,255,.03);
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .block .bb{ padding:10px; }
+    .grid2{ display:grid; grid-template-columns: 1fr auto; gap:8px; font-size:12px; }
+    .grid2 div:nth-child(2n){ text-align:right; font-variant-numeric: tabular-nums; }
+
+    .optRow{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      padding:8px 0;
+      border-bottom:1px solid rgba(255,255,255,.07);
+      font-size:12px;
+    }
+    .optRow:last-child{ border-bottom:none; }
+    .optRow label{ display:flex; gap:10px; align-items:flex-start; cursor:pointer; user-select:none; }
+    .optRow input{ transform: translateY(2px); }
+    .optRow .desc{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .optRow .desc .t{ font-weight:850; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .optRow .desc .s{ color:var(--muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .optRow .price{ color:var(--muted); font-variant-numeric: tabular-nums; white-space:nowrap; }
+
+    .miniInput{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      outline:none;
+      font-size:13px;
+    }
+
+    .toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background: rgba(0,0,0,.7);
+      border:1px solid rgba(255,255,255,.12);
+      padding:10px 12px;
+      border-radius:12px;
+      color:var(--text);
+      font-size:13px;
+      opacity:0; pointer-events:none;
+      transition: opacity .2s ease;
+      z-index:50;
+    }
+    .toast.show{opacity:1}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="title">
+    <h1>Implantation Multi-Plans + Catalogue</h1>
+    <div class="sub">v4 • Produit composite “Pont Wifi” (TX+RX) compté comme 1</div>
+  </div>
+
+  <div class="actions">
+    <button class="btn small primary" id="btnAddPlan">➕ Ajouter plan</button>
+    <button class="btn small" id="btnRenamePlan">✏️ Renommer</button>
+    <button class="btn small danger" id="btnDeletePlan">🗑️ Supprimer plan</button>
+
+    <label class="btn small primary" for="planFile">📎 Charger image plan</label>
+    <input id="planFile" type="file" accept="image/*" />
+
+    <button class="btn small" id="btnSave">💾 Sauver</button>
+    <button class="btn small" id="btnResetAll">🧹 Vider tout</button>
+    <button class="btn small danger" id="btnDeleteEqp">🗑️ Supprimer sélection</button>
+    <button class="btn small primary" id="btnExport">⬇️ Export CSV (réf;qty)</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="card-h">
+      <div class="left">
+        <div class="t">Plans + Catalogue</div>
+        <div class="d">Pose produit sur plan (drag) • “Pont Wifi” = 2 icônes TX/RX</div>
+      </div>
+      <div class="pill" id="statusPill">0 équipement</div>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div class="catalog">
+      <div class="panel">
+        <h3>Rubriques</h3>
+        <div class="list" id="catList"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Sous-rubriques</h3>
+        <div class="list" id="subList"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Produits</h3>
+        <div class="list" id="prodList"></div>
+        <div style="padding:0 12px 12px;">
+          <div class="activeToolBox" id="activeToolBox" style="display:none;">
+            <div class="ic" id="activeToolIcon">●</div>
+            <div style="min-width:0">
+              <div style="font-weight:900; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="activeToolName"></div>
+              <div class="note" id="activeToolRef" style="margin:0"></div>
+            </div>
+          </div>
+          <div class="note">
+            Tap vide = désélection (si sélection), sinon ajout du produit actif.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="planWrap">
+      <img id="planImg" alt="Plan" />
+      <div id="planHint"><span class="dot"></span><span id="hintText">Charge une image pour ce plan, puis pose des équipements.</span></div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <div class="card-h">
+      <div class="left">
+        <div class="t">Quantitatif global</div>
+        <div class="d">Addition sur tous les plans + câblage auto caméras</div>
+      </div>
+      <div class="rowActions">
+        <button class="btn small" id="btnCopyCSV">📋 Copier CSV</button>
+        <button class="btn small" id="btnExportDetail">⬇️ CSV détaillé</button>
+      </div>
+    </div>
+
+    <div class="card-b">
+      <table>
+        <thead>
+          <tr>
+            <th>Réf</th>
+            <th>Désignation</th>
+            <th class="num">Qté</th>
+            <th class="num">PU</th>
+            <th class="num">HT</th>
+          </tr>
+        </thead>
+        <tbody id="qtyBody"></tbody>
+      </table>
+
+      <div class="kv" id="totalsBox"></div>
+
+      <div class="block">
+        <div class="bh">Main d'œuvre</div>
+        <div class="bb">
+          <div class="grid2" id="moGrid"></div>
+          <div style="height:10px"></div>
+
+          <div class="optRow" style="border-bottom:none;">
+            <label>
+              <input type="checkbox" id="chkSecondTech">
+              <span class="desc">
+                <span class="t">Second technicien</span>
+                <span class="s">Ajouter des heures de MO (72€/h)</span>
+              </span>
+            </label>
+            <span class="price" style="min-width:140px;">
+              <input class="miniInput" id="secondTechHours" type="number" min="0" step="0.5" value="0" style="width:140px" />
+            </span>
+          </div>
+          <div class="note">Tirage câble : 20 m / heure (calculé sur CABRJ45-100 × 100m).</div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="bh">Contrat de maintenance (HT / mois)</div>
+        <div class="bb">
+          <div class="grid2" id="maintenanceGrid"></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="bh">
+          <span>Options (HT / mois)</span>
+          <span class="tag" id="optionsTotalTag">Total: 0,00 € HT</span>
+        </div>
+        <div class="bb" id="optionsBody"></div>
+      </div>
+
+      <div class="block">
+        <div class="bh">ASSURE (Location - HT / mois)</div>
+        <div class="bb">
+          <div class="grid2" id="assureGrid"></div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="note">
+        Pont Wifi : 2 points (TX/RX) mais 1 seule quantité au quantitatif.
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== CATALOGUE ===================== */
+const CATALOG = {
+  "Vidéoprotection": {
+    icon: "📹",
+    groups: {
+      "Caméras": [
+        { key:"VPRO_CAM_BULLET_4MP", name:"Caméra Bullet 4MP", ref:"CAM-BUL-4MP", pu:420, poseH:1.5, icon:"📷" },
+        { key:"VPRO_CAM_DOME_4MP",   name:"Caméra Dôme 4MP",   ref:"CAM-DOM-4MP", pu:390, poseH:1.5, icon:"🎥" },
+        { key:"VPRO_CAM_IA_ANALYST", name:"Caméra IA / Analyst",ref:"CAM-IA-ANL", pu:690, poseH:2.0, icon:"🤖" }
+      ],
+      "Enregistreurs": [
+        { key:"VPRO_NVR_8CH",  name:"NVR 8 canaux PoE", ref:"NVR-8CH-POE", pu:780, poseH:2.0, icon:"🗄️" },
+        { key:"VPRO_NVR_16CH", name:"NVR 16 canaux PoE",ref:"NVR-16CH-POE",pu:1180,poseH:2.5, icon:"🗄️" }
+      ],
+      "Disques durs": [
+        { key:"VPRO_HDD_4TB", name:"Disque dur 4TB surveillance", ref:"HDD-SURV-4TB", pu:135, poseH:0.2, icon:"💽" },
+        { key:"VPRO_HDD_8TB", name:"Disque dur 8TB surveillance", ref:"HDD-SURV-8TB", pu:235, poseH:0.2, icon:"💽" }
+      ],
+
+      /* ✅ NOUVELLE SOUS-RUBRIQUE */
+      "Transmission": [
+        {
+          key:"VPRO_PONT_WIFI",
+          name:"Pont Wifi",
+          ref:"PONTWIFI",
+          pu:200,
+          poseH:1.0,
+          icon:"📡",
+          composite:true,
+          parts:[
+            { role:"tx", icon:"📡", label:"TX" },
+            { role:"rx", icon:"📶", label:"RX" }
+          ]
+        }
+      ]
+    }
+  },
+
+  "Intrusion": {
+    icon: "🚨",
+    groups: {
+      "Centrales": [
+        { key:"INTR_CENTRALE_01", name:"Centrale intrusion", ref:"CENT-INT-01", pu:850, poseH:3.0, icon:"🚨" },
+        { key:"INTR_TRANSM_GPRS", name:"Transmetteur IP/GPRS", ref:"TRSM-IPGPRS", pu:260, poseH:0.8, icon:"📡" }
+      ],
+      "Détecteurs": [
+        { key:"INTR_PIR_01", name:"Détecteur PIR", ref:"PIR-INT-01", pu:85, poseH:0.5, icon:"👁" },
+        { key:"INTR_CONTACT_01", name:"Contact porte", ref:"CTC-INT-01", pu:22, poseH:0.3, icon:"🚪" }
+      ]
+    }
+  },
+
+  "Contrôle d'accès": {
+    icon: "🔐",
+    groups: {
+      "Lecteurs": [
+        { key:"AC_READER_MIFARE", name:"Lecteur Mifare", ref:"AC-RDR-MIF", pu:190, poseH:0.8, icon:"📟" },
+        { key:"AC_READER_BIO",    name:"Lecteur biométrique", ref:"AC-RDR-BIO", pu:420, poseH:1.2, icon:"🫳" }
+      ],
+      "Contrôleurs": [
+        { key:"AC_CTRL_2PORT", name:"Contrôleur 2 portes", ref:"AC-CTRL-2P", pu:490, poseH:1.5, icon:"🧠" }
+      ]
+    }
+  }
+};
+
+/* ===================== CÂBLAGE AUTO (par caméra) ===================== */
+const CABLING_RULES = {
+  items: {
+    "CABRJ45-100": { ref:"CABRJ45-100", name:"Câble RJ45 (couronne 100m)", pu:150, icon:"🧵", metersPerUnit:100, type:"cable" },
+    "RJ45MALE":    { ref:"RJ45MALE",    name:"Connecteur RJ45 mâle",       pu:5,   icon:"🔌", metersPerUnit:0,   type:"cable" }
+  },
+  perCamera: [
+    { ref:"CABRJ45-100", qty:1 },
+    { ref:"RJ45MALE",    qty:2 }
+  ]
+};
+
+const PARAM = { moRate:72, cableSpeedMPerHour:20, tva:0.20 };
+
+const OPTIONS_DEF = [
+  { id:"telesurveillance", label:"Télésurveillance", sub:"Forfait mensuel", type:"flat", price:35 },
+  { id:"levee_doute_video", label:"Levée de doute vidéo", sub:"6€ / caméra / mois", type:"per_camera", price:6 }
+];
+
+/* ===================== STATE ===================== */
+const LS_KEY = "implantation_catalogue_v4_composite_wifi";
+let state = loadState() || {
+  activePlanId: null,
+  selectedId: null, // id d'un placement
+  activeCategory: "Vidéoprotection",
+  activeSubgroup: "Caméras",
+  activeItemKey: null,
+  options: { telesurveillance:false, levee_doute_video:false },
+  secondTech: { enabled:false, hours:0 },
+  plans: [{ id: uid("plan"), name:"RDC", imageDataUrl:"", placements:[] }]
+};
+
+if(!state.activePlanId) state.activePlanId = state.plans[0].id;
+state.options = state.options || {};
+for(const o of OPTIONS_DEF){
+  if(typeof state.options[o.id] !== "boolean") state.options[o.id] = false;
+}
+state.secondTech = state.secondTech || { enabled:false, hours:0 };
+
+ensureDefaultSelection();
+
+function loadState(){ try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; } }
+function safeSaveRaw(){
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn(e); toast("⚠️ Stockage plein (plan trop lourd)."); }
+}
+function saveState(){ safeSaveRaw(); toast("Sauvegardé ✅"); }
+function getActivePlan(){ return state.plans.find(p=>p.id===state.activePlanId) || state.plans[0]; }
+
+function ensureDefaultSelection(){
+  const cats = Object.keys(CATALOG);
+  if(!cats.length) return;
+  if(!(state.activeCategory in CATALOG)) state.activeCategory = cats[0];
+  const groups = Object.keys(CATALOG[state.activeCategory].groups);
+  if(!groups.length) return;
+  if(!(state.activeSubgroup in CATALOG[state.activeCategory].groups)) state.activeSubgroup = groups[0];
+  const items = CATALOG[state.activeCategory].groups[state.activeSubgroup];
+  if(!items?.length) return;
+  const exists = items.some(i=>i.key===state.activeItemKey);
+  if(!exists) state.activeItemKey = items[0].key;
+}
+
+/* ===================== HELPERS CATALOGUE ===================== */
+function getItemByKey(itemKey){
+  for(const [catName, cat] of Object.entries(CATALOG)){
+    for(const [groupName, items] of Object.entries(cat.groups)){
+      const found = items.find(i=>i.key===itemKey);
+      if(found) return { catName, groupName, item: found, catIcon: cat.icon };
+    }
+  }
+  return null;
+}
+function getActiveItem(){
+  const hit = getItemByKey(state.activeItemKey);
+  return hit ? hit.item : null;
+}
+function countCamerasGlobal(){
+  let n = 0;
+  state.plans.forEach(pl=>{
+    (pl.placements||[]).forEach(p=>{
+      const hit = getItemByKey(p.itemKey);
+      if(hit && hit.catName==="Vidéoprotection" && hit.groupName==="Caméras"){
+        // si un jour caméra composite => éviter double comptage
+        if(!p.bundleId) n += 1;
+        else {
+          // composite: compter une seule fois par bundleId
+          // (pas utilisé aujourd'hui pour caméras)
+        }
+      }
+    });
+  });
+  return n;
+}
+
+/* ===================== DOM ===================== */
+const tabsEl = document.getElementById("tabs");
+const catList = document.getElementById("catList");
+const subList = document.getElementById("subList");
+const prodList = document.getElementById("prodList");
+
+const planWrap = document.getElementById("planWrap");
+const planImg  = document.getElementById("planImg");
+const planFile = document.getElementById("planFile");
+
+const qtyBody = document.getElementById("qtyBody");
+const totalsBox = document.getElementById("totalsBox");
+const maintenanceGrid = document.getElementById("maintenanceGrid");
+const optionsBody = document.getElementById("optionsBody");
+const optionsTotalTag = document.getElementById("optionsTotalTag");
+const assureGrid = document.getElementById("assureGrid");
+const moGrid = document.getElementById("moGrid");
+
+const chkSecondTech = document.getElementById("chkSecondTech");
+const secondTechHoursInput = document.getElementById("secondTechHours");
+
+/* ===================== SECOND TECH UI ===================== */
+chkSecondTech.checked = !!state.secondTech.enabled;
+secondTechHoursInput.value = String(Number(state.secondTech.hours || 0));
+chkSecondTech.addEventListener("change", ()=>{
+  state.secondTech.enabled = !!chkSecondTech.checked;
+  safeSaveRaw();
+  renderQuantitatifGlobal();
+});
+secondTechHoursInput.addEventListener("input", ()=>{
+  const v = parseFloat(secondTechHoursInput.value);
+  state.secondTech.hours = Number.isFinite(v) && v >= 0 ? v : 0;
+  safeSaveRaw();
+  renderQuantitatifGlobal();
+});
+
+/* ===================== RENDER ===================== */
+function renderAll(){
+  renderTabs();
+  renderCatalogue();
+  renderActiveToolBox();
+  renderPlan();
+  renderPlacements();
+  renderQuantitatifGlobal();
+}
+
+function renderTabs(){
+  tabsEl.innerHTML = "";
+  state.plans.forEach(p=>{
+    const tab = document.createElement("div");
+    tab.className = "tab" + (p.id===state.activePlanId ? " active" : "");
+    tab.innerHTML = `<span>${escapeHtml(p.name)}</span><span class="mini">${(p.placements||[]).length}</span>`;
+    tab.addEventListener("click", ()=>{
+      state.activePlanId = p.id;
+      state.selectedId = null;
+      safeSaveRaw();
+      renderAll();
+      toast(`Plan : ${p.name}`);
+    });
+    tabsEl.appendChild(tab);
+  });
+}
+
+function renderCatalogue(){
+  ensureDefaultSelection();
+
+  catList.innerHTML = "";
+  for(const [catName, cat] of Object.entries(CATALOG)){
+    const div = document.createElement("div");
+    div.className = "item" + (state.activeCategory===catName ? " active" : "");
+    div.innerHTML = `
+      <div class="left">
+        <div class="ic">${cat.icon || "📦"}</div>
+        <div class="txt">
+          <div class="name">${escapeHtml(catName)}</div>
+          <div class="sub">${Object.keys(cat.groups).length} sous-rubrique(s)</div>
+        </div>
+      </div>
+      <span class="tag">Cat</span>`;
+    div.addEventListener("click", ()=>{
+      state.activeCategory = catName;
+      const firstSub = Object.keys(CATALOG[catName].groups)[0];
+      state.activeSubgroup = firstSub;
+      state.activeItemKey = CATALOG[catName].groups[firstSub][0].key;
+      safeSaveRaw();
+      renderCatalogue();
+      renderActiveToolBox();
+      toast(`Rubrique : ${catName}`);
+    });
+    catList.appendChild(div);
+  }
+
+  subList.innerHTML = "";
+  const activeCat = CATALOG[state.activeCategory];
+  for(const [groupName, items] of Object.entries(activeCat.groups)){
+    const div = document.createElement("div");
+    div.className = "item" + (state.activeSubgroup===groupName ? " active" : "");
+    div.innerHTML = `
+      <div class="left">
+        <div class="ic">📁</div>
+        <div class="txt">
+          <div class="name">${escapeHtml(groupName)}</div>
+          <div class="sub">${items.length} produit(s)</div>
+        </div>
+      </div>
+      <span class="tag">Grp</span>`;
+    div.addEventListener("click", ()=>{
+      state.activeSubgroup = groupName;
+      state.activeItemKey = items[0].key;
+      safeSaveRaw();
+      renderCatalogue();
+      renderActiveToolBox();
+      toast(`Sous-rubrique : ${groupName}`);
+    });
+    subList.appendChild(div);
+  }
+
+  prodList.innerHTML = "";
+  const list = activeCat.groups[state.activeSubgroup] || [];
+  list.forEach(prod=>{
+    const compositeNote = prod.composite ? " • 2 points TX/RX" : "";
+    const div = document.createElement("div");
+    div.className = "item" + (state.activeItemKey===prod.key ? " active" : "");
+    div.innerHTML = `
+      <div class="left">
+        <div class="ic">${prod.icon || "🔧"}</div>
+        <div class="txt">
+          <div class="name">${escapeHtml(prod.name)}</div>
+          <div class="sub">${escapeHtml(prod.ref)} • PU ${Number(prod.pu||0).toFixed(0)}€ • Pose ${Number(prod.poseH||0).toFixed(1)}h${compositeNote}</div>
+        </div>
+      </div>
+      <span class="tag">${escapeHtml(state.activeCategory)}</span>`;
+    div.addEventListener("click", ()=>{
+      state.activeItemKey = prod.key;
+      safeSaveRaw();
+      renderCatalogue();
+      renderActiveToolBox();
+      toast(`Produit actif : ${prod.name}`);
+    });
+    prodList.appendChild(div);
+  });
+}
+
+function renderActiveToolBox(){
+  const box = document.getElementById("activeToolBox");
+  const ic = document.getElementById("activeToolIcon");
+  const nm = document.getElementById("activeToolName");
+  const rf = document.getElementById("activeToolRef");
+
+  const hit = getItemByKey(state.activeItemKey);
+  if(!hit){ box.style.display = "none"; return; }
+
+  box.style.display = "flex";
+  ic.textContent = hit.item.icon || "●";
+  nm.textContent = `${hit.catIcon || "📦"} ${hit.item.name} (${hit.groupName})`;
+  rf.textContent = `${hit.item.ref} • PU ${Number(hit.item.pu||0).toFixed(2)}€ • Pose ${Number(hit.item.poseH||0).toFixed(1)}h` + (hit.item.composite ? " • (TX/RX)" : "");
+}
+
+function renderPlan(){
+  const plan = getActivePlan();
+  planImg.src = plan.imageDataUrl || "";
+  document.getElementById("hintText").textContent = plan.imageDataUrl
+    ? "Tap vide = désélection (si sélection), sinon ajout du produit actif."
+    : "Charge une image pour ce plan, puis pose des équipements.";
+}
+
+function clearPlacementNodes(){ [...planWrap.querySelectorAll(".eqp")].forEach(n=>n.remove()); }
+
+function renderPlacements(){
+  clearPlacementNodes();
+  const plan = getActivePlan();
+
+  (plan.placements||[]).forEach(p=>{
+    const hit = getItemByKey(p.itemKey);
+    const meta = hit?.item;
+
+    const icon = p.partIcon || meta?.icon || "●";
+    const badge = p.partLabel || "1";
+
+    const node = document.createElement("div");
+    node.className = "eqp" + (state.selectedId===p.id ? " selected" : "");
+    node.dataset.id = p.id;
+    node.innerHTML = `<div>${icon}</div><div class="badge">${escapeHtml(badge)}</div>`;
+    node.style.left = (p.xPct*100).toFixed(3) + "%";
+    node.style.top  = (p.yPct*100).toFixed(3) + "%";
+
+    node.addEventListener("touchstart", (ev)=>startDragTouch(ev, p), {passive:false});
+    node.addEventListener("mousedown", (ev)=>startDragMouse(ev, p));
+
+    node.addEventListener("click", (ev)=>{
+      ev.stopPropagation();
+      state.selectedId = p.id;
+      safeSaveRaw();
+      renderPlacements();
+    });
+
+    planWrap.appendChild(node);
+  });
+
+  const totalAll = state.plans.reduce((acc, pl)=>acc + (pl.placements?.length || 0), 0);
+  document.getElementById("statusPill").textContent = `${totalAll} point(s)`;
+}
+
+/* ===================== PLAN IMPORT ===================== */
+planFile.addEventListener("change", async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  try{
+    const dataUrl = await fileToCompressedDataUrl(file, 2000, 0.82);
+    const plan = getActivePlan();
+    plan.imageDataUrl = dataUrl;
+    safeSaveRaw();
+    renderPlan();
+    toast("Image plan chargée ✅");
+  }catch(err){
+    console.error(err);
+    toast("Impossible de charger l'image (format/taille).");
+  }finally{
+    planFile.value = "";
+  }
+});
+
+async function fileToCompressedDataUrl(file, maxDim=2000, quality=0.82){
+  const blobUrl = URL.createObjectURL(file);
+  const img = await new Promise((resolve, reject)=>{
+    const im = new Image();
+    im.onload = ()=>resolve(im);
+    im.onerror = reject;
+    im.src = blobUrl;
+  });
+
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  const nw = Math.max(1, Math.round(w * scale));
+  const nh = Math.max(1, Math.round(h * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = nw; canvas.height = nh;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, nw, nh);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", quality);
+  URL.revokeObjectURL(blobUrl);
+  return dataUrl;
+}
+
+/* ===================== ADD / DESELECT (COMPOSITE OK) ===================== */
+planWrap.addEventListener("click", (ev)=>{
+  if(ev.target.closest(".eqp")) return;
+
+  if(state.selectedId){
+    state.selectedId = null;
+    safeSaveRaw();
+    renderPlacements();
+    toast("Sélection annulée");
+    return;
+  }
+
+  const plan = getActivePlan();
+  if(!plan.imageDataUrl){
+    toast("Charge une image pour ce plan 📎");
+    return;
+  }
+
+  const activeItem = getActiveItem();
+  if(!activeItem){
+    toast("Choisis un produit dans le catalogue.");
+    return;
+  }
+
+  const rect = planWrap.getBoundingClientRect();
+  const x = clamp((ev.clientX - rect.left) / rect.width, 0.02, 0.98);
+  const y = clamp((ev.clientY - rect.top)  / rect.height,0.02, 0.98);
+
+  if(activeItem.composite && Array.isArray(activeItem.parts) && activeItem.parts.length >= 2){
+    // ✅ Produit composite => 2 points liés (bundleId commun)
+    const bundleId = uid("bundle");
+    const p1 = activeItem.parts[0];
+    const p2 = activeItem.parts[1];
+
+    // petit offset pour ne pas superposer TX/RX
+    const dx = 0.05;
+    const dy = 0.00;
+
+    const id1 = uid("pt");
+    const id2 = uid("pt");
+
+    plan.placements.push({
+      id:id1, bundleId, itemKey: state.activeItemKey,
+      partRole: p1.role, partIcon: p1.icon, partLabel: p1.label,
+      xPct:x, yPct:y
+    });
+    plan.placements.push({
+      id:id2, bundleId, itemKey: state.activeItemKey,
+      partRole: p2.role, partIcon: p2.icon, partLabel: p2.label,
+      xPct: clamp(x+dx, 0.02, 0.98),
+      yPct: clamp(y+dy, 0.02, 0.98)
+    });
+
+    state.selectedId = id1;
+    safeSaveRaw();
+    renderAll();
+    toast("Pont Wifi ajouté (TX + RX)");
+    return;
+  }
+
+  // produit normal
+  const id = uid("eqp");
+  plan.placements.push({
+    id, itemKey: state.activeItemKey,
+    xPct:x, yPct:y
+  });
+
+  state.selectedId = id;
+  safeSaveRaw();
+  renderAll();
+});
+
+/* ===================== DRAG ===================== */
+let dragTouch = null;
+let dragMouse = null;
+
+function startDragTouch(ev, placement){
+  ev.preventDefault();
+  ev.stopPropagation();
+  state.selectedId = placement.id;
+  safeSaveRaw();
+  renderPlacements();
+
+  const t = ev.touches[0];
+  dragTouch = { id: placement.id };
+
+  window.addEventListener("touchmove", onDragTouchMove, {passive:false});
+  window.addEventListener("touchend", onDragTouchEnd, {passive:false});
+  window.addEventListener("touchcancel", onDragTouchEnd, {passive:false});
+
+  movePlacementToClientXY(t.clientX, t.clientY, placement.id);
+}
+function onDragTouchMove(ev){
+  if(!dragTouch) return;
+  ev.preventDefault();
+  const t = ev.touches[0];
+  movePlacementToClientXY(t.clientX, t.clientY, dragTouch.id);
+}
+function onDragTouchEnd(ev){
+  if(!dragTouch) return;
+  ev.preventDefault();
+  dragTouch = null;
+  window.removeEventListener("touchmove", onDragTouchMove);
+  window.removeEventListener("touchend", onDragTouchEnd);
+  window.removeEventListener("touchcancel", onDragTouchEnd);
+}
+
+function startDragMouse(ev, placement){
+  ev.preventDefault();
+  ev.stopPropagation();
+  state.selectedId = placement.id;
+  safeSaveRaw();
+  renderPlacements();
+
+  dragMouse = { id: placement.id };
+  window.addEventListener("mousemove", onDragMouseMove);
+  window.addEventListener("mouseup", onDragMouseEnd);
+
+  movePlacementToClientXY(ev.clientX, ev.clientY, placement.id);
+}
+function onDragMouseMove(ev){
+  if(!dragMouse) return;
+  movePlacementToClientXY(ev.clientX, ev.clientY, dragMouse.id);
+}
+function onDragMouseEnd(){
+  if(!dragMouse) return;
+  dragMouse = null;
+  window.removeEventListener("mousemove", onDragMouseMove);
+  window.removeEventListener("mouseup", onDragMouseEnd);
+}
+
+function movePlacementToClientXY(clientX, clientY, placementId){
+  const plan = getActivePlan();
+  const p = plan.placements.find(pp=>pp.id===placementId);
+  if(!p) return;
+
+  const rect = planWrap.getBoundingClientRect();
+  const x = (clientX - rect.left) / rect.width;
+  const y = (clientY - rect.top)  / rect.height;
+
+  p.xPct = clamp(x, 0.02, 0.98);
+  p.yPct = clamp(y, 0.02, 0.98);
+
+  safeSaveRaw();
+  renderPlacements();
+}
+
+/* ===================== SUPPRESSION (COMPOSITE => supprime bundle) ===================== */
+document.getElementById("btnDeleteEqp").addEventListener("click", ()=>{
+  const plan = getActivePlan();
+  if(!state.selectedId){ toast("Aucune sélection"); return; }
+
+  const selected = plan.placements.find(p=>p.id===state.selectedId);
+  if(!selected){ toast("Sélection introuvable"); return; }
+
+  if(selected.bundleId){
+    // supprimer tous les points du bundle (TX+RX)
+    const bid = selected.bundleId;
+    plan.placements = plan.placements.filter(p=>p.bundleId !== bid);
+    state.selectedId = null;
+    safeSaveRaw();
+    renderAll();
+    toast("Produit composite supprimé (TX+RX)");
+    return;
+  }
+
+  plan.placements = plan.placements.filter(p=>p.id!==state.selectedId);
+  state.selectedId = null;
+  safeSaveRaw();
+  renderAll();
+  toast("Supprimé 🗑️");
+});
+
+/* ===================== CALCULS (COMPOSITE COUNT = 1) ===================== */
+function computeAggGlobal(){
+  const rowsMap = new Map(); // ref -> {ref,label,qty,pu,type}
+  let hoursPose = 0;
+
+  // Compteurs bundle pour produits composites
+  const compositeCount = new Map(); // key=itemKey -> Set(bundleId)
+
+  // 1) placements -> matériel
+  state.plans.forEach(pl=>{
+    (pl.placements||[]).forEach(p=>{
+      const hit = getItemByKey(p.itemKey);
+      if(!hit) return;
+      const m = hit.item;
+
+      if(m.composite){
+        if(!compositeCount.has(m.key)) compositeCount.set(m.key, new Set());
+        if(p.bundleId) compositeCount.get(m.key).add(p.bundleId);
+        return; // ne pas compter chaque point
+      }
+
+      // produit normal
+      const key = m.ref;
+      if(!rowsMap.has(key)){
+        rowsMap.set(key, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material" });
+      }
+      rowsMap.get(key).qty += 1;
+      hoursPose += Number(m.poseH || 0);
+    });
+  });
+
+  // 1bis) ajouter les produits composites en qty = nb de bundles
+  for(const [itemKey, setBundles] of compositeCount.entries()){
+    const hit = getItemByKey(itemKey);
+    if(!hit) continue;
+    const m = hit.item;
+    const qty = setBundles.size;
+    if(qty <= 0) continue;
+
+    const ref = m.ref;
+    if(!rowsMap.has(ref)){
+      rowsMap.set(ref, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material" });
+    }
+    rowsMap.get(ref).qty += qty;
+    hoursPose += Number(m.poseH || 0) * qty;
+  }
+
+  // 2) câblage auto par caméra (inchangé)
+  const camCount = countCamerasGlobal();
+  for(const rule of CABLING_RULES.perCamera){
+    const meta = CABLING_RULES.items[rule.ref];
+    if(!meta) continue;
+
+    const addQty = camCount * rule.qty;
+    if(addQty <= 0) continue;
+
+    if(!rowsMap.has(meta.ref)){
+      rowsMap.set(meta.ref, { ref:meta.ref, label:meta.name, qty:0, pu:Number(meta.pu||0), type:meta.type || "cable", metersPerUnit:Number(meta.metersPerUnit||0) });
+    }
+    rowsMap.get(meta.ref).qty += addQty;
+  }
+
+  // 3) Totaux matériel / câbles
+  let totalMaterialHT = 0;
+  let totalCableHT = 0;
+  let totalCableMeters = 0;
+
+  for(const r of rowsMap.values()){
+    const lineHT = r.pu * r.qty;
+    if(r.type === "cable"){
+      totalCableHT += lineHT;
+      const mpu = Number(r.metersPerUnit || 0);
+      if(mpu > 0) totalCableMeters += (mpu * r.qty);
+    } else {
+      totalMaterialHT += lineHT;
+    }
+  }
+
+  // 4) MO tirage câble + second tech
+  const hoursCable = totalCableMeters / PARAM.cableSpeedMPerHour;
+  const secondHours = (state.secondTech.enabled ? Number(state.secondTech.hours||0) : 0);
+
+  const totalHours = hoursPose + hoursCable + secondHours;
+  const totalMOHT = totalHours * PARAM.moRate;
+
+  // 5) TVA + TTC
+  const subHT = totalMaterialHT + totalCableHT + totalMOHT;
+  const tva = subHT * PARAM.tva;
+  const totalTTC = subHT + tva;
+
+  const rows = [...rowsMap.values()].sort((a,b)=>a.ref.localeCompare(b.ref));
+
+  return {
+    rows,
+    camCount,
+    totalMaterialHT,
+    totalCableHT,
+    totalMOHT,
+    hoursPose,
+    hoursCable,
+    secondHours,
+    totalHours,
+    totalCableMeters,
+    subHT,
+    tva,
+    totalTTC
+  };
+}
+
+function renderQuantitatifGlobal(){
+  const totals = computeAggGlobal();
+
+  qtyBody.innerHTML = "";
+  if(!totals.rows.length){
+    qtyBody.innerHTML = `<tr><td colspan="5" style="color:var(--muted)">Aucun équipement posé.</td></tr>`;
+  } else {
+    totals.rows.forEach(r=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(r.ref)}</td>
+        <td>${escapeHtml(r.label)}</td>
+        <td class="num">${r.qty}</td>
+        <td class="num">${fmt(r.pu)}</td>
+        <td class="num">${fmt(r.pu*r.qty)}</td>`;
+      qtyBody.appendChild(tr);
+    });
+  }
+
+  totalsBox.innerHTML = `
+    <div style="color:var(--muted)">Total Matériel HT</div><div><b>${fmt(totals.totalMaterialHT)}</b></div>
+    <div style="color:var(--muted)">Total Câbles HT</div><div><b>${fmt(totals.totalCableHT)}</b></div>
+    <div style="color:var(--muted)">MO HT</div><div><b>${fmt(totals.totalMOHT)}</b></div>
+    <div style="color:var(--muted)">Sous-total HT</div><div><b>${fmt(totals.subHT)}</b></div>
+    <div style="color:var(--muted)">TVA (${Math.round(PARAM.tva*100)}%)</div><div><b>${fmt(totals.tva)}</b></div>
+    <div style="color:var(--muted)">Total TTC</div><div><b>${fmt(totals.totalTTC)}</b></div>
+  `;
+
+  moGrid.innerHTML = `
+    <div>Pose matériel (h)</div><div><b>${totals.hoursPose.toFixed(2)} h</b></div>
+    <div>Tirage câble (${totals.totalCableMeters.toFixed(0)} m @ 20 m/h)</div><div><b>${totals.hoursCable.toFixed(2)} h</b></div>
+    <div>Second technicien (h)</div><div><b>${totals.secondHours.toFixed(2)} h</b></div>
+    <div>Total heures</div><div><b>${totals.totalHours.toFixed(2)} h</b></div>
+    <div>MO (72€/h)</div><div><b>${fmt(totals.totalMOHT)}</b></div>
+  `;
+
+  renderMaintenance(totals.subHT);
+  renderOptions(totals.camCount);
+  renderAssure(totals.subHT);
+}
+
+/* Maintenance */
+function renderMaintenance(totalHT){
+  const optimum = (totalHT * 0.11) / 12;
+  const gold    = (totalHT * 0.13) / 12;
+  maintenanceGrid.innerHTML = `
+    <div>Optimum (11% / an)</div><div><b>${fmtHTmois(optimum)}</b></div>
+    <div>Gold (13% / an)</div><div><b>${fmtHTmois(gold)}</b></div>
+  `;
+}
+
+/* Options */
+function renderOptions(camCount){
+  let sum = 0;
+  optionsBody.innerHTML = "";
+
+  OPTIONS_DEF.forEach(o=>{
+    const checked = !!state.options[o.id];
+    let line = 0;
+    let priceTxt = "";
+
+    if(o.type==="flat"){
+      line = o.price;
+      priceTxt = `${o.price.toFixed(2)} € / mois`;
+    } else if(o.type==="per_camera"){
+      line = o.price * camCount;
+      priceTxt = `${o.price.toFixed(2)} € × ${camCount} cam = ${line.toFixed(2)} € / mois`;
+    }
+
+    if(checked) sum += line;
+
+    const row = document.createElement("div");
+    row.className = "optRow";
+    row.innerHTML = `
+      <label>
+        <input type="checkbox" ${checked ? "checked" : ""} data-opt="${o.id}">
+        <span class="desc">
+          <span class="t">${escapeHtml(o.label)}</span>
+          <span class="s">${escapeHtml(o.sub)}</span>
+        </span>
+      </label>
+      <span class="price">${priceTxt}</span>
+    `;
+    optionsBody.appendChild(row);
+  });
+
+  optionsBody.querySelectorAll("input[type=checkbox][data-opt]").forEach(chk=>{
+    chk.addEventListener("change", (ev)=>{
+      const id = ev.target.getAttribute("data-opt");
+      state.options[id] = !!ev.target.checked;
+      safeSaveRaw();
+      renderQuantitatifGlobal();
+      toast("Options mises à jour ✅");
+    });
+  });
+
+  optionsTotalTag.textContent = `Total: ${fmtHTmois(sum)}`;
+}
+
+/* ASSURE */
+function renderAssure(totalHT){
+  const m36 = totalHT / 24;
+  const m48 = totalHT / 30;
+  const m60 = totalHT / 36;
+  const m72 = totalHT / 42;
+
+  assureGrid.innerHTML = `
+    <div>36 mois (HT ÷ 24)</div><div><b>${fmtHTmois(m36)}</b></div>
+    <div>48 mois (HT ÷ 30)</div><div><b>${fmtHTmois(m48)}</b></div>
+    <div>60 mois (HT ÷ 36)</div><div><b>${fmtHTmois(m60)}</b></div>
+    <div>72 mois (HT ÷ 42)</div><div><b>${fmtHTmois(m72)}</b></div>
+  `;
+}
+
+/* ===================== EXPORT CSV (composite ok) ===================== */
+function buildCSVsimpleGlobal(){
+  const { rows } = computeAggGlobal();
+  const lines = ["ref;qty"];
+  rows.forEach(r=>lines.push(`${r.ref};${r.qty}`));
+  return lines.join("\n");
+}
+function buildCSVdetailGlobal(){
+  const t = computeAggGlobal();
+  const lines = ["ref;designation;qty;pu;lineHT;type"];
+  t.rows.forEach(r=>{
+    const lineHT = r.pu * r.qty;
+    lines.push([r.ref, safeCSV(r.label), r.qty, r.pu.toFixed(2), lineHT.toFixed(2), r.type].join(";"));
+  });
+  return lines.join("\n");
+}
+document.getElementById("btnExport").addEventListener("click", ()=>{
+  downloadText(buildCSVsimpleGlobal(), "export_global_ref_qty.csv");
+  toast("Export global téléchargé ⬇️");
+});
+document.getElementById("btnExportDetail").addEventListener("click", ()=>{
+  downloadText(buildCSVdetailGlobal(), "export_global_detail.csv");
+  toast("Export détaillé téléchargé ⬇️");
+});
+document.getElementById("btnCopyCSV").addEventListener("click", async ()=>{
+  const txt = buildCSVsimpleGlobal();
+  try{ await navigator.clipboard.writeText(txt); toast("CSV copié 📋"); }
+  catch{ prompt("Copie le CSV :", txt); }
+});
+
+/* ===================== PLAN MANAGEMENT ===================== */
+document.getElementById("btnAddPlan").addEventListener("click", ()=>{
+  const name = prompt("Nom du plan (Extérieur, RDC, Étage 1...) :", "Étage 1");
+  if(!name) return;
+  const newPlan = { id: uid("plan"), name: name.trim(), imageDataUrl:"", placements:[] };
+  state.plans.push(newPlan);
+  state.activePlanId = newPlan.id;
+  state.selectedId = null;
+  safeSaveRaw();
+  renderAll();
+  toast("Plan ajouté ➕");
+});
+document.getElementById("btnRenamePlan").addEventListener("click", ()=>{
+  const plan = getActivePlan();
+  const name = prompt("Nouveau nom du plan :", plan.name);
+  if(!name) return;
+  plan.name = name.trim();
+  safeSaveRaw();
+  renderTabs();
+  toast("Plan renommé ✏️");
+});
+document.getElementById("btnDeletePlan").addEventListener("click", ()=>{
+  if(state.plans.length<=1){ toast("Impossible : il faut au moins 1 plan"); return; }
+  const plan = getActivePlan();
+  if(!confirm(`Supprimer le plan "${plan.name}" et tous ses placements ?`)) return;
+  state.plans = state.plans.filter(p=>p.id!==plan.id);
+  state.activePlanId = state.plans[0].id;
+  state.selectedId = null;
+  safeSaveRaw();
+  renderAll();
+  toast("Plan supprimé 🗑️");
+});
+document.getElementById("btnSave").addEventListener("click", ()=>saveState());
+document.getElementById("btnResetAll").addEventListener("click", ()=>{
+  if(!confirm("Vider TOUS les plans (images + placements) ?")) return;
+  state.plans.forEach(p=>{ p.imageDataUrl=""; p.placements=[]; });
+  state.selectedId=null;
+  safeSaveRaw();
+  renderAll();
+  toast("Tout a été vidé 🧹");
+});
+
+/* ===================== HELPERS ===================== */
+function uid(prefix){ return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+}
+function safeCSV(s){ return String(s).replace(/\r?\n/g," ").replace(/;/g,","); }
+function fmt(n){ return (Number.isFinite(n) ? n : 0).toLocaleString("fr-FR", {style:"currency", currency:"EUR"}); }
+function fmtHTmois(n){
+  const v = Number.isFinite(n) ? n : 0;
+  return v.toLocaleString("fr-FR", {style:"currency", currency:"EUR"}) + " HT";
+}
+function downloadText(text, filename){
+  const blob = new Blob([text], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* Toast */
+const toastEl = document.getElementById("toast");
+let toastT=null;
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>toastEl.classList.remove("show"), 1800);
+}
+
+/* INIT */
+renderAll();
+</script>
+</body>
+</html>

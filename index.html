@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Implantation Multi-Plans + Catalogue (v4)</title>
+  <title>Implantation Multi-Plans + Catalogue (v4 + Photos + PDF)</title>
   <style>
     :root{
       --bg:#0b1220; --text:#e8eefc; --muted:#9fb0d0;
@@ -333,6 +333,72 @@
       z-index:50;
     }
     .toast.show{opacity:1}
+
+    /* ===== MODAL PHOTOS ===== */
+    .modalBackdrop{
+      display:none;
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.60);
+      z-index: 9999;
+      padding: 22px;
+      overflow:auto;
+    }
+    .modalCard{
+      max-width: 980px;
+      margin: 30px auto;
+      background: rgba(20,30,50,.98);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      overflow:hidden;
+      box-shadow: var(--shadow);
+    }
+    .modalHead{
+      padding:12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+    }
+    .modalHead .ttl{
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    .modalBody{ padding:12px; }
+    #photosGrid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap:10px;
+    }
+    .phCard{
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      overflow:hidden;
+      background: rgba(0,0,0,.18);
+    }
+    .phCard .phImgWrap{
+      aspect-ratio: 4/3;
+      background:#000;
+    }
+    .phCard img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .phCard .phMeta{
+      padding:8px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .phCard .phName{
+      font-size:12px;
+      font-weight:850;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      max-width: 120px;
+    }
   </style>
 </head>
 
@@ -340,7 +406,7 @@
 <header>
   <div class="title">
     <h1>Implantation Multi-Plans + Catalogue</h1>
-    <div class="sub">v4 • Produit composite “Pont Wifi” (TX+RX) compté comme 1</div>
+    <div class="sub">v4 • Produit composite “Pont Wifi” (TX+RX) compté comme 1 • + Photos + Export PDF</div>
   </div>
 
   <div class="actions">
@@ -350,6 +416,11 @@
 
     <label class="btn small primary" for="planFile">📎 Charger image plan</label>
     <input id="planFile" type="file" accept="image/*" />
+
+    <!-- ✅ NOUVEAU : Photos + Export PDF -->
+    <button class="btn small" id="btnPhotos">🖼️ Photos du projet</button>
+    <button class="btn small primary" id="btnExportPDF">📄 Export PDF</button>
+    <input id="photosFile" type="file" accept="image/*" multiple />
 
     <button class="btn small" id="btnSave">💾 Sauver</button>
     <button class="btn small" id="btnResetAll">🧹 Vider tout</button>
@@ -487,6 +558,29 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ✅ MODAL PHOTOS -->
+<div id="photosModal" class="modalBackdrop" aria-hidden="true">
+  <div class="modalCard">
+    <div class="modalHead">
+      <div class="ttl">Photos du projet</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small primary" id="btnAddPhotos">➕ Ajouter</button>
+        <button class="btn small danger" id="btnClosePhotos">✖ Fermer</button>
+      </div>
+    </div>
+    <div class="modalBody">
+      <div id="photosGrid"></div>
+      <div class="note" style="margin-top:10px;">
+        Astuce : pour un PDF fluide sur iPad, évite 50 photos “full 4K” 😉 (les photos sont compressées automatiquement).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ Librairies PDF (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
 <script>
 /* ===================== CATALOGUE ===================== */
 const CATALOG = {
@@ -576,6 +670,7 @@ const OPTIONS_DEF = [
 /* ===================== STATE ===================== */
 const LS_KEY = "implantation_catalogue_v4_composite_wifi";
 let state = loadState() || {
+  projectId: null, // ✅ nouveau (Photos = par projet)
   activePlanId: null,
   selectedId: null, // id d'un placement
   activeCategory: "Vidéoprotection",
@@ -586,6 +681,7 @@ let state = loadState() || {
   plans: [{ id: uid("plan"), name:"RDC", imageDataUrl:"", placements:[] }]
 };
 
+if(!state.projectId) state.projectId = "project_default";
 if(!state.activePlanId) state.activePlanId = state.plans[0].id;
 state.options = state.options || {};
 for(const o of OPTIONS_DEF){
@@ -636,12 +732,7 @@ function countCamerasGlobal(){
     (pl.placements||[]).forEach(p=>{
       const hit = getItemByKey(p.itemKey);
       if(hit && hit.catName==="Vidéoprotection" && hit.groupName==="Caméras"){
-        // si un jour caméra composite => éviter double comptage
         if(!p.bundleId) n += 1;
-        else {
-          // composite: compter une seule fois par bundleId
-          // (pas utilisé aujourd'hui pour caméras)
-        }
       }
     });
   });
@@ -926,12 +1017,10 @@ planWrap.addEventListener("click", (ev)=>{
   const y = clamp((ev.clientY - rect.top)  / rect.height,0.02, 0.98);
 
   if(activeItem.composite && Array.isArray(activeItem.parts) && activeItem.parts.length >= 2){
-    // ✅ Produit composite => 2 points liés (bundleId commun)
     const bundleId = uid("bundle");
     const p1 = activeItem.parts[0];
     const p2 = activeItem.parts[1];
 
-    // petit offset pour ne pas superposer TX/RX
     const dx = 0.05;
     const dy = 0.00;
 
@@ -957,7 +1046,6 @@ planWrap.addEventListener("click", (ev)=>{
     return;
   }
 
-  // produit normal
   const id = uid("eqp");
   plan.placements.push({
     id, itemKey: state.activeItemKey,
@@ -1053,7 +1141,6 @@ document.getElementById("btnDeleteEqp").addEventListener("click", ()=>{
   if(!selected){ toast("Sélection introuvable"); return; }
 
   if(selected.bundleId){
-    // supprimer tous les points du bundle (TX+RX)
     const bid = selected.bundleId;
     plan.placements = plan.placements.filter(p=>p.bundleId !== bid);
     state.selectedId = null;
@@ -1075,10 +1162,8 @@ function computeAggGlobal(){
   const rowsMap = new Map(); // ref -> {ref,label,qty,pu,type}
   let hoursPose = 0;
 
-  // Compteurs bundle pour produits composites
   const compositeCount = new Map(); // key=itemKey -> Set(bundleId)
 
-  // 1) placements -> matériel
   state.plans.forEach(pl=>{
     (pl.placements||[]).forEach(p=>{
       const hit = getItemByKey(p.itemKey);
@@ -1088,10 +1173,9 @@ function computeAggGlobal(){
       if(m.composite){
         if(!compositeCount.has(m.key)) compositeCount.set(m.key, new Set());
         if(p.bundleId) compositeCount.get(m.key).add(p.bundleId);
-        return; // ne pas compter chaque point
+        return;
       }
 
-      // produit normal
       const key = m.ref;
       if(!rowsMap.has(key)){
         rowsMap.set(key, { ref:m.ref, label:m.name, qty:0, pu:Number(m.pu||0), type:"material" });
@@ -1101,7 +1185,6 @@ function computeAggGlobal(){
     });
   });
 
-  // 1bis) ajouter les produits composites en qty = nb de bundles
   for(const [itemKey, setBundles] of compositeCount.entries()){
     const hit = getItemByKey(itemKey);
     if(!hit) continue;
@@ -1117,7 +1200,6 @@ function computeAggGlobal(){
     hoursPose += Number(m.poseH || 0) * qty;
   }
 
-  // 2) câblage auto par caméra (inchangé)
   const camCount = countCamerasGlobal();
   for(const rule of CABLING_RULES.perCamera){
     const meta = CABLING_RULES.items[rule.ref];
@@ -1132,7 +1214,6 @@ function computeAggGlobal(){
     rowsMap.get(meta.ref).qty += addQty;
   }
 
-  // 3) Totaux matériel / câbles
   let totalMaterialHT = 0;
   let totalCableHT = 0;
   let totalCableMeters = 0;
@@ -1148,14 +1229,12 @@ function computeAggGlobal(){
     }
   }
 
-  // 4) MO tirage câble + second tech
   const hoursCable = totalCableMeters / PARAM.cableSpeedMPerHour;
   const secondHours = (state.secondTech.enabled ? Number(state.secondTech.hours||0) : 0);
 
   const totalHours = hoursPose + hoursCable + secondHours;
   const totalMOHT = totalHours * PARAM.moRate;
 
-  // 5) TVA + TTC
   const subHT = totalMaterialHT + totalCableHT + totalMOHT;
   const tva = subHT * PARAM.tva;
   const totalTTC = subHT + tva;
@@ -1396,7 +1475,397 @@ function toast(msg){
   toastT = setTimeout(()=>toastEl.classList.remove("show"), 1800);
 }
 
-/* INIT */
+/* ===================== PHOTOS (IndexedDB) ===================== */
+const DB_NAME = "implantation_app_db";
+const DB_VER = 1;
+const STORE_PHOTOS = "project_photos";
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = ()=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains(STORE_PHOTOS)){
+        const st = db.createObjectStore(STORE_PHOTOS, { keyPath: "id" });
+        st.createIndex("byProject", "projectId", { unique:false });
+      }
+    };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+
+function idbAddPhoto(projectId, dataUrl, name){
+  return openDB().then(db=>{
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE_PHOTOS, "readwrite");
+      const st = tx.objectStore(STORE_PHOTOS);
+      const rec = {
+        id: `ph_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        projectId,
+        name: name || "photo",
+        dataUrl,
+        createdAt: Date.now()
+      };
+      st.add(rec);
+      tx.oncomplete = ()=>resolve(rec);
+      tx.onerror = ()=>reject(tx.error);
+    });
+  });
+}
+
+function idbListPhotos(projectId){
+  return openDB().then(db=>{
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE_PHOTOS, "readonly");
+      const st = tx.objectStore(STORE_PHOTOS);
+      const idx = st.index("byProject");
+      const req = idx.getAll(projectId);
+      req.onsuccess = ()=>resolve((req.result||[]).sort((a,b)=>a.createdAt-b.createdAt));
+      req.onerror = ()=>reject(req.error);
+    });
+  });
+}
+
+function idbDeletePhoto(id){
+  return openDB().then(db=>{
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE_PHOTOS, "readwrite");
+      const st = tx.objectStore(STORE_PHOTOS);
+      st.delete(id);
+      tx.oncomplete = ()=>resolve();
+      tx.onerror = ()=>reject(tx.error);
+    });
+  });
+}
+
+async function imageFileToCompressedDataUrl(file, maxDim=1600, quality=0.78){
+  return fileToCompressedDataUrl(file, maxDim, quality);
+}
+
+/* UI Photos */
+const btnPhotos = document.getElementById("btnPhotos");
+const photosModal = document.getElementById("photosModal");
+const btnClosePhotos = document.getElementById("btnClosePhotos");
+const btnAddPhotos = document.getElementById("btnAddPhotos");
+const photosFile = document.getElementById("photosFile");
+const photosGrid = document.getElementById("photosGrid");
+
+btnPhotos.addEventListener("click", async ()=>{
+  await renderPhotosGrid();
+  photosModal.style.display = "block";
+  photosModal.setAttribute("aria-hidden", "false");
+});
+
+btnClosePhotos.addEventListener("click", ()=>{
+  photosModal.style.display = "none";
+  photosModal.setAttribute("aria-hidden", "true");
+});
+
+photosModal.addEventListener("click", (e)=>{
+  if(e.target === photosModal){
+    photosModal.style.display = "none";
+    photosModal.setAttribute("aria-hidden", "true");
+  }
+});
+
+btnAddPhotos.addEventListener("click", ()=>{
+  photosFile.click();
+});
+
+photosFile.addEventListener("change", async (e)=>{
+  const files = [...(e.target.files || [])];
+  if(!files.length) return;
+  try{
+    for(const f of files){
+      const dataUrl = await imageFileToCompressedDataUrl(f, 1600, 0.78);
+      await idbAddPhoto(state.projectId, dataUrl, f.name);
+    }
+    toast("Photos ajoutées ✅");
+  }catch(err){
+    console.error(err);
+    toast("Erreur ajout photo ❌");
+  }finally{
+    photosFile.value = "";
+    await renderPhotosGrid();
+  }
+});
+
+async function renderPhotosGrid(){
+  const photos = await idbListPhotos(state.projectId);
+  photosGrid.innerHTML = "";
+  if(!photos.length){
+    photosGrid.innerHTML = `<div class="note">Aucune photo pour ce projet.</div>`;
+    return;
+  }
+
+  for(const p of photos){
+    const card = document.createElement("div");
+    card.className = "phCard";
+    card.innerHTML = `
+      <div class="phImgWrap"><img src="${p.dataUrl}" alt=""></div>
+      <div class="phMeta">
+        <div class="phName" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+        <button class="btn small danger" data-del="${p.id}">Suppr</button>
+      </div>
+    `;
+    photosGrid.appendChild(card);
+  }
+
+  photosGrid.querySelectorAll("[data-del]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const id = btn.getAttribute("data-del");
+      await idbDeletePhoto(id);
+      toast("Photo supprimée 🗑️");
+      await renderPhotosGrid();
+    });
+  });
+}
+
+/* ===================== LEGEND (1 plan) ===================== */
+function computeAggForOnePlan(plan){
+  const rows = new Map();
+  const compositeBundles = new Map(); // itemKey -> Set(bundleId)
+
+  for(const p of (plan.placements||[])){
+    const hit = getItemByKey(p.itemKey);
+    if(!hit) continue;
+    const m = hit.item;
+
+    if(m.composite){
+      if(!compositeBundles.has(m.key)) compositeBundles.set(m.key, new Set());
+      if(p.bundleId) compositeBundles.get(m.key).add(p.bundleId);
+      continue;
+    }
+
+    const ref = m.ref;
+    if(!rows.has(ref)) rows.set(ref, { ref, label:m.name, qty:0 });
+    rows.get(ref).qty += 1;
+  }
+
+  for(const [itemKey, setB] of compositeBundles.entries()){
+    const hit = getItemByKey(itemKey);
+    if(!hit) continue;
+    const m = hit.item;
+    const ref = m.ref;
+    if(!rows.has(ref)) rows.set(ref, { ref, label:m.name, qty:0 });
+    rows.get(ref).qty += setB.size;
+  }
+
+  return [...rows.values()].sort((a,b)=>a.ref.localeCompare(b.ref));
+}
+
+function computeOptionsMonthlyHT(camCount){
+  let sum = 0;
+  for(const o of OPTIONS_DEF){
+    if(!state.options[o.id]) continue;
+    if(o.type==="flat") sum += o.price;
+    if(o.type==="per_camera") sum += o.price * camCount;
+  }
+  return sum;
+}
+
+/* ===================== EXPORT PDF ===================== */
+document.getElementById("btnExportPDF").addEventListener("click", async ()=>{
+  try{
+    if(!window.html2canvas || !window.jspdf){
+      toast("Librairies PDF non chargées (internet ?) ❌");
+      return;
+    }
+
+    const projectName = prompt("Nom du projet :", "Étude - Site client");
+    if(!projectName) return;
+
+    const projectDate = prompt("Date (ex: 11/01/2026) :", new Date().toLocaleDateString("fr-FR"));
+    if(!projectDate) return;
+
+    const operator = prompt("Opérateur :", "");
+    if(!operator) return;
+
+    await exportPDF({ projectName, projectDate, operator });
+  }catch(err){
+    console.error(err);
+    toast("Erreur export PDF ❌");
+  }
+});
+
+function fmtNumber(n){
+  const v = Number.isFinite(n) ? n : 0;
+  return v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+function truncate(s, n){ s=String(s||""); return s.length>n ? s.slice(0,n-1)+"…" : s; }
+
+async function exportPDF(meta){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:"p", unit:"mm", format:"a4" });
+
+  const margin = 12;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  function title(txt){
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(txt, margin, 18);
+  }
+  function sub(txt, y){
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(11);
+    doc.text(txt, margin, y);
+  }
+
+  /* PAGE 1 */
+  const totals = computeAggGlobal();
+  title("Étude – Implantation & Chiffrage");
+  doc.setFontSize(12);
+  sub(`Projet : ${meta.projectName}`, 32);
+  sub(`Date : ${meta.projectDate}`, 40);
+  sub(`Opérateur : ${meta.operator}`, 48);
+
+  let y = 62;
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Résumé", margin, y); y += 8;
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+
+  doc.text(`Matériel HT : ${fmtNumber(totals.totalMaterialHT)} €`, margin, y); y += 6;
+  doc.text(`Câbles HT : ${fmtNumber(totals.totalCableHT)} €`, margin, y); y += 6;
+  doc.text(`MO HT : ${fmtNumber(totals.totalMOHT)} €`, margin, y); y += 6;
+  doc.text(`Sous-total HT : ${fmtNumber(totals.subHT)} €`, margin, y); y += 6;
+  doc.text(`TVA : ${fmtNumber(totals.tva)} €`, margin, y); y += 6;
+  doc.text(`Total TTC : ${fmtNumber(totals.totalTTC)} €`, margin, y);
+
+  /* PAGES PLANS */
+  const prevPlanId = state.activePlanId;
+
+  for(const pl of state.plans){
+    doc.addPage();
+    title(`Plan : ${pl.name}`);
+
+    state.activePlanId = pl.id;
+    state.selectedId = null;
+    safeSaveRaw();
+    renderAll();
+    await wait(140);
+
+    const canvas = await html2canvas(planWrap, { backgroundColor:"#0b1220", scale:2 });
+    const imgData = canvas.toDataURL("image/jpeg", 0.86);
+
+    const imgW = pageW - margin*2;
+    const imgH = (canvas.height / canvas.width) * imgW;
+    const maxH = 140;
+    const drawH = Math.min(imgH, maxH);
+    doc.addImage(imgData, "JPEG", margin, 26, imgW, drawH);
+
+    // Légende
+    let ly = 26 + drawH + 10;
+    doc.setFont("helvetica","bold"); doc.setFontSize(12);
+    doc.text("Légende / Matériel sur ce plan", margin, ly); ly += 8;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+
+    const legend = computeAggForOnePlan(pl);
+    if(!legend.length){
+      doc.text("Aucun équipement posé sur ce plan.", margin, ly);
+    } else {
+      for(const row of legend){
+        if(ly > pageH - margin){
+          doc.addPage();
+          title(`Plan : ${pl.name} (suite)`);
+          ly = 30;
+          doc.setFont("helvetica","normal"); doc.setFontSize(10);
+        }
+        doc.text(`${row.ref} — ${row.label} (Qté: ${row.qty})`, margin, ly);
+        ly += 5.5;
+      }
+    }
+  }
+
+  state.activePlanId = prevPlanId;
+  safeSaveRaw();
+  renderAll();
+
+  /* PAGE COTATION */
+  doc.addPage();
+  title("Cotation & Services");
+  y = 30;
+
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Totaux", margin, y); y += 8;
+
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  doc.text(`Total Matériel HT : ${fmtNumber(totals.totalMaterialHT)} €`, margin, y); y+=6;
+  doc.text(`Total Câbles HT : ${fmtNumber(totals.totalCableHT)} €`, margin, y); y+=6;
+  doc.text(`Main d'œuvre HT : ${fmtNumber(totals.totalMOHT)} €`, margin, y); y+=6;
+  doc.text(`Sous-total HT : ${fmtNumber(totals.subHT)} €`, margin, y); y+=6;
+  doc.text(`TVA : ${fmtNumber(totals.tva)} €`, margin, y); y+=6;
+  doc.text(`Total TTC : ${fmtNumber(totals.totalTTC)} €`, margin, y); y+=10;
+
+  doc.setFont("helvetica","bold"); doc.text("Main d'œuvre (détails)", margin, y); y+=8;
+  doc.setFont("helvetica","normal");
+  doc.text(`Pose matériel : ${totals.hoursPose.toFixed(2)} h`, margin, y); y+=6;
+  doc.text(`Tirage câble : ${totals.hoursCable.toFixed(2)} h (${totals.totalCableMeters.toFixed(0)} m)`, margin, y); y+=6;
+  doc.text(`Second technicien : ${totals.secondHours.toFixed(2)} h`, margin, y); y+=6;
+  doc.text(`Total heures : ${totals.totalHours.toFixed(2)} h`, margin, y); y+=10;
+
+  const optimum = (totals.subHT * 0.11) / 12;
+  const gold    = (totals.subHT * 0.13) / 12;
+  doc.setFont("helvetica","bold"); doc.text("Contrat de maintenance (HT / mois)", margin, y); y+=8;
+  doc.setFont("helvetica","normal");
+  doc.text(`Optimum : ${fmtNumber(optimum)} € HT/mois`, margin, y); y+=6;
+  doc.text(`Gold : ${fmtNumber(gold)} € HT/mois`, margin, y); y+=10;
+
+  const optTotal = computeOptionsMonthlyHT(totals.camCount);
+  doc.setFont("helvetica","bold"); doc.text("Options (HT / mois)", margin, y); y+=8;
+  doc.setFont("helvetica","normal");
+  doc.text(`Total options : ${fmtNumber(optTotal)} € HT/mois`, margin, y); y+=10;
+
+  doc.setFont("helvetica","bold"); doc.text("ASSURE (location - HT / mois)", margin, y); y+=8;
+  doc.setFont("helvetica","normal");
+  doc.text(`36 mois : ${fmtNumber(totals.subHT/24)} € HT/mois`, margin, y); y+=6;
+  doc.text(`48 mois : ${fmtNumber(totals.subHT/30)} € HT/mois`, margin, y); y+=6;
+  doc.text(`60 mois : ${fmtNumber(totals.subHT/36)} € HT/mois`, margin, y); y+=6;
+  doc.text(`72 mois : ${fmtNumber(totals.subHT/42)} € HT/mois`, margin, y);
+
+  /* PAGES PHOTOS */
+  const photos = await idbListPhotos(state.projectId);
+  if(photos.length){
+    doc.addPage();
+    title("Photos du projet");
+
+    let px = margin, py = 26;
+    const cellW = (pageW - margin*2 - 6) / 2;
+    const cellH = 60;
+
+    for(let i=0; i<photos.length; i++){
+      const p = photos[i];
+
+      if(py + cellH > pageH - margin){
+        doc.addPage();
+        title("Photos du projet (suite)");
+        px = margin; py = 26;
+      }
+
+      doc.addImage(p.dataUrl, "JPEG", px, py, cellW, cellH);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica","normal");
+      doc.text(truncate(p.name, 36), px, py + cellH + 5);
+
+      if(px < margin + cellW + 3){
+        px = margin + cellW + 6;
+      } else {
+        px = margin;
+        py += (cellH + 14);
+      }
+    }
+  }
+
+  const safeName = (meta.projectName || "export").replace(/[\\/:*?"<>|]+/g, "-");
+  doc.save(`Etude_${safeName}_${meta.projectDate.replaceAll("/","-")}.pdf`);
+  toast("PDF généré ✅");
+}
+
+/* ===================== INIT ===================== */
 renderAll();
 </script>
 </body>

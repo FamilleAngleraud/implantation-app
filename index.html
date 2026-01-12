@@ -883,18 +883,41 @@ document.getElementById("btnExportPDF").onclick = async ()=>{
 
     let optSum = 0;
     const optLines = [];
-    if(Array.isArray(window.OPTIONS_DEF) && state.options){
+
+    // Options cochées : lecture robuste (UI -> state -> localStorage)
+    const selectedOpt = {};
+    try{
+      document.querySelectorAll('input[type=checkbox][data-opt]').forEach(chk=>{
+        const id = chk.getAttribute("data-opt");
+        selectedOpt[id] = !!chk.checked;
+      });
+    }catch(e){}
+
+    // fallback localStorage (au cas où state n'est pas à jour)
+    let lsOpt = {};
+    try{
+      const ls = loadState && loadState();
+      if(ls && ls.options) lsOpt = ls.options;
+    }catch(e){}
+
+    const optSource = (Object.keys(selectedOpt).length ? selectedOpt : (state.options || lsOpt || {}));
+
+    if(Array.isArray(OPTIONS_DEF)){
       OPTIONS_DEF.forEach(o=>{
-        if(!state.options[o.id]) return;
+        if(!optSource[o.id]) return;
         let line = 0;
         if(o.type==="flat") line = Number(o.price||0);
         if(o.type==="per_camera") line = Number(o.price||0) * Number(totals.camCount||0);
         optSum += line;
-        optLines.push(`• ${o.label} : ${fmtEUR(line)} / mois HT`);
+        // on garde des lignes simples et lisibles dans le PDF
+        if(o.type==="per_camera"){
+          optLines.push(`${o.label} : ${Number(o.price||0)}€ × ${Number(totals.camCount||0)} cam = ${fmtEUR(line)} / mois HT`);
+        }else{
+          optLines.push(`${o.label} : ${fmtEUR(line)} / mois HT`);
+        }
       });
     }
-
-    const assure36 = Number(totals.subHT||0)/24;
+const assure36 = Number(totals.subHT||0)/24;
     const assure48 = Number(totals.subHT||0)/30;
     const assure60 = Number(totals.subHT||0)/36;
     const assure72 = Number(totals.subHT||0)/42;
@@ -1064,7 +1087,66 @@ document.getElementById("btnExportPDF").onclick = async ()=>{
     footer();
 
     // ===== PLANS =====
-    const prevActive = state.activePlan;
+    // Capture robuste par plan : rendu hors-écran pour éviter les doublons
+    const refWrap = document.getElementById("planWrap");
+    const refRect = refWrap ? refWrap.getBoundingClientRect() : {width:900, height:520};
+
+    function buildOffscreenPlanDom(plan){
+      const off = document.createElement("div");
+      off.style.position = "fixed";
+      off.style.left = "-10000px";
+      off.style.top = "0";
+      off.style.width = Math.max(300, Math.round(refRect.width)) + "px";
+      off.style.height = Math.max(300, Math.round(refRect.height)) + "px";
+      off.style.background = "#ffffff";
+      off.style.overflow = "hidden";
+      off.style.borderRadius = "14px";
+      off.style.boxShadow = "none";
+      off.style.pointerEvents = "none";
+
+      // Plan image
+      const img = document.createElement("img");
+      img.src = plan.imageDataUrl || "";
+      img.style.position = "absolute";
+      img.style.inset = "0";
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "contain";
+      img.style.opacity = "0.95";
+      off.appendChild(img);
+
+      // Placements
+      (plan.placements||[]).forEach(p=>{
+        const hit = getItemByKey(p.itemKey);
+        const meta = hit?.item;
+        const icon = p.partIcon || meta?.icon || "●";
+        const badge = p.partLabel || "1";
+
+        const node = document.createElement("div");
+        node.className = "eqp";
+        node.innerHTML = `<div>${icon}</div><div class="badge">${escapeHtml(badge)}</div>`;
+        node.style.left = (p.xPct*100).toFixed(3) + "%";
+        node.style.top  = (p.yPct*100).toFixed(3) + "%";
+        // pas d'events
+        off.appendChild(node);
+      });
+
+      return {off, img};
+    }
+
+    async function waitImageReady(img){
+      if(!img) return;
+      if(img.complete && img.naturalWidth) return;
+      // decode() si dispo
+      if(img.decode){
+        try{ await img.decode(); return; }catch(e){}
+      }
+      await new Promise(res=>{
+        img.addEventListener("load", ()=>res(), {once:true});
+        img.addEventListener("error", ()=>res(), {once:true});
+      });
+    }
+
     for(let i=0;i<state.plans.length;i++){
       const plan = state.plans[i];
       newPage("Plans & Légendes", `Plan ${i+1}/${state.plans.length}`);
@@ -1074,28 +1156,19 @@ document.getElementById("btnExportPDF").onclick = async ()=>{
       pdf.text(`Plan : ${safeText(plan.name || ("Plan "+(i+1)))}`, M.l, 28);
       pdf.setTextColor(0);
 
-      state.activePlan = i;
-      renderAll();
+      // rendu offscreen
+      const {off, img} = buildOffscreenPlanDom(plan);
+      document.body.appendChild(off);
 
-      // attendre rendu du plan (robuste: src + decode/load + 2 frames)
-      const planImg = document.getElementById("planImg");
-      if(planImg){
-        const target = plan.imageDataUrl || "";
-        if(target){
-          if(planImg.src !== target) planImg.src = target;
-          if(planImg.decode){
-            try{ await planImg.decode(); }catch(e){}
-          }else if(!planImg.complete){
-            await new Promise(res=> planImg.addEventListener("load", res, {once:true}));
-          }
-        }
-      }
+      await waitImageReady(img);
       await new Promise(requestAnimationFrame);
       await new Promise(requestAnimationFrame);
 
-      const planWrap = document.getElementById("planWrap");
-      const snap = await html2canvas(planWrap, {backgroundColor:"#ffffff", scale:2});
+      const snap = await html2canvas(off, {backgroundColor:"#ffffff", scale:2});
       const imgData = snap.toDataURL("image/jpeg", 0.92);
+
+      // cleanup
+      off.remove();
 
       const imgW = pageW - M.l - M.r;
       const imgH = 112;
@@ -1131,7 +1204,7 @@ document.getElementById("btnExportPDF").onclick = async ()=>{
 
       pdf.setFontSize(10);
       let rowIndex = 0;
-      for(const [k,q] of counts.entries()){ 
+      for(const [k,q] of counts.entries()){
         const cellLines = splitCell(k, 148);
         const rowH = Math.max(1, cellLines.length) * 5 + 2;
 
@@ -1156,10 +1229,7 @@ document.getElementById("btnExportPDF").onclick = async ()=>{
       }
       footer();
     }
-    state.activePlan = prevActive;
-    renderAll();
-
-    // ===== COTATION =====
+// ===== COTATION =====
     newPage("Cotation & Services", "");
 
     let cy = 28;
@@ -1248,6 +1318,13 @@ document.getElementById("btnExportPDF").onclick = async ()=>{
         cy += 5;
       }
       pdf.setTextColor(0);
+    } else {
+      pdf.setFontSize(9);
+      pdf.setTextColor(...C.textMuted);
+      cy = ensureSpace(cy, 6, "Cotation & Services", "Options");
+      pdf.text("Aucune option sélectionnée", M.l, cy);
+      pdf.setTextColor(0);
+      cy += 5;
     }
 
     cy = sectionTitle("ASSURE (location - mensuel HT)", cy+2, "Cotation & Services", "ASSURE");
